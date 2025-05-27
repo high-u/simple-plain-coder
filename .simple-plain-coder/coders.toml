@@ -1,0 +1,53 @@
+[llm]
+name = "llm-coder"
+model_server = "http://localhost:11434/v1"
+# model_name = "hf.co/Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M"
+model_name = "qwen3:8b"
+api_key = "DUMMY"
+temperature = 0.8
+top_p = 0.95
+top_k = 40
+num_predict = -2
+max_tokens = 32768
+repeat_penalty = 1.1
+presence_penalty = 0.0
+frequency_penalty = 0.0
+stream = true
+system_prompt = ""
+template = ""
+
+[frontend]
+name = "frontend-coder"
+model_server = "http://localhost:11434/v1"
+# model_name = "hf.co/Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M"
+model_name = "qwen3:8b"
+api_key = "DUMMY"
+temperature = 0.8
+top_p = 0.95
+top_k = 40
+num_predict = -2
+max_tokens = 32768
+repeat_penalty = 1.1
+presence_penalty = 0.0
+frequency_penalty = 0.0
+stream = true
+system_prompt = ""
+template = ""
+
+[backend]
+name = "backend-coder"
+model_server = "http://localhost:11434/v1"
+# model_name = "hf.co/Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M"
+model_name = "qwen3:8b"
+api_key = "DUMMY"
+temperature = 0.8
+top_p = 0.95
+top_k = 40
+num_predict = -2
+max_tokens = 32768
+repeat_penalty = 1.1
+presence_penalty = 0.0
+frequency_penalty = 0.0
+stream = true
+system_prompt = ""
+template = ""
