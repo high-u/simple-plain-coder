@@ -1,5 +1,7 @@
 """
-プロンプト関連のユーティリティ関数
+プロンプト関連のI/O操作モジュール
+
+このモジュールは、ユーザー入力の取得、表示、対話的な選択などの副作用を持つI/O操作を提供します。
 """
 from typing import List, Optional, Callable, Tuple, Any, Dict
 from prompt_toolkit import PromptSession
@@ -8,6 +10,8 @@ from prompt_toolkit.shortcuts import radiolist_dialog, CompleteStyle
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 from prompt_toolkit.document import Document
+from prompt_toolkit.key_binding import KeyBindings
+import prompt_core
 
 class CoderCommandCompleter(Completer):
     """coder選択とコマンド入力のためのコンプリーター
@@ -97,6 +101,8 @@ def create_prompt_session(commands: List[Tuple[str, str]], coders: List[Tuple[st
         complete_while_typing=True
     )
 
+
+
 def get_user_input(session: PromptSession, profile_name: str = None) -> Optional[str]:
     """ユーザーからの入力を取得する
     
@@ -108,15 +114,11 @@ def get_user_input(session: PromptSession, profile_name: str = None) -> Optional
         ユーザー入力、中断された場合はNone
     """
     try:
-        # coder名が指定されていればプロンプトに表示
-        prompt = f"@{profile_name} > " if profile_name else "> "
+        # プロンプト文字列をフォーマット
+        prompt = prompt_core.format_prompt(profile_name)
         
         # prompt_toolkitを使用したインタラクティブな入力
         user_input = session.prompt(prompt, complete_in_thread=True)
-        
-        # @ で始まる入力の場合は、coder選択として処理
-        if user_input.startswith('@'):
-            return user_input.strip()
         
         return user_input.strip()
     except KeyboardInterrupt:
@@ -171,13 +173,15 @@ def fuzzy_select_from_list(prompt_text: str, values: List[Tuple[str, str]], defa
     })
     
     # 選択肢を表示用に整形
-    choices = [f"{key}: {display}" for key, display in values]
-    key_map = {f"{key}: {display}": key for key, display in values}
+    choices = prompt_core.prepare_display_choices(values)
+    key_map = {choice: prompt_core.extract_key_from_display(choice) for choice in choices}
     
     # デフォルト値が指定されている場合は、表示用に変換
     default_text = ""
     if default_value:
-        default_text = next((choice for choice in choices if choice.startswith(f"{default_value}:")), "")
+        default_index = prompt_core.find_default_choice_index(choices, default_value)
+        if 0 <= default_index < len(choices):
+            default_text = choices[default_index]
     
     # ファジー表示用のコンプリータを作成
     completer = FuzzyCompleter(WordCompleter(choices))
@@ -221,9 +225,9 @@ def fuzzy_select_from_list(prompt_text: str, values: List[Tuple[str, str]], defa
             return None
         else:
             # 完全一致しない場合は、最も近い候補を探す
-            for choice in choices:
-                if result.lower() in choice.lower():
-                    return key_map[choice]
+            best_match = prompt_core.find_best_match(result, choices)
+            if best_match:
+                return key_map[best_match]
             return None
     except (KeyboardInterrupt, EOFError):
         print("\nSelection cancelled")

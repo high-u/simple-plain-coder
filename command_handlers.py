@@ -1,9 +1,13 @@
 """
-コマンド管理モジュール - 関数型アプローチ
+コマンドハンドラーモジュール
+
+このモジュールは、各コマンドの実際の処理を行うハンドラー関数を提供します。
+これらの関数は副作用（出力、状態変更など）を持ちます。
 """
-from typing import Dict, Callable, List, Tuple, Any
-import config_utils
-from prompt_utils import select_from_list, fuzzy_select_from_list
+from typing import Dict, List, Tuple, Any, Optional, Callable
+import config_io
+from prompt_io import select_from_list, fuzzy_select_from_list
+import command_core
 
 # コマンドハンドラーの型定義
 CommandHandler = Callable[[str, Dict[str, Any]], bool]
@@ -33,22 +37,19 @@ def handle_command(user_input: str, context: Dict[str, Any]) -> bool:
     Returns:
         コマンドが処理された場合はTrue、そうでない場合はFalse
     """
-    # コマンドかどうかをチェック（/で始まるか）
-    if not user_input.startswith('/'):
+    # コマンドかどうかをチェック
+    if not command_core.is_command(user_input):
         return False
-        
-    # コマンド部分を取得（空白で区切られた最初の部分）
-    parts = user_input.split(maxsplit=1)
-    command = parts[0]
     
-    # 引数部分を取得（ある場合）
-    args = parts[1] if len(parts) > 1 else ""
+    # コマンドと引数を解析
+    command, args = command_core.parse_command(user_input)
     
     # コマンドが登録されているかチェック
-    if command in _commands:
+    handler = command_core.match_command(command, _commands)
+    if handler:
         # コマンドハンドラーを呼び出し
-        return _commands[command](args, context)
-        
+        return handler(args, context)
+    
     # 登録されていないコマンドの場合
     print(f"Unknown command: {command}")
     return True
@@ -59,7 +60,7 @@ def get_commands() -> List[Tuple[str, str]]:
     Returns:
         コマンドと説明のタプルリスト [(コマンド名, 説明)]
     """
-    return [(cmd, _descriptions.get(cmd, "")) for cmd in _commands.keys()]
+    return command_core.prepare_command_list(_descriptions)
 
 def get_command_descriptions() -> Dict[str, str]:
     """登録されているコマンドとその説明の辞書を取得する
@@ -95,10 +96,8 @@ def handle_help_command(args: str, context: Dict[str, Any]) -> bool:
     Returns:
         常にTrue
     """
-    descriptions = get_command_descriptions()
-    print("Available commands:")
-    for cmd, desc in descriptions.items():
-        print(f"  {cmd} - {desc}")
+    help_text = command_core.format_command_help(_descriptions)
+    print(help_text.replace('\\n', '\n'))
     return True
 
 def handle_list_command(args: str, context: Dict[str, Any]) -> bool:
@@ -112,14 +111,14 @@ def handle_list_command(args: str, context: Dict[str, Any]) -> bool:
         常にTrue
     """
     # 利用可能なcoderを取得
-    coders = config_utils.get_available_coders()
+    coders = config_io.get_available_coders()
     
     if not coders:
         print("No coders found in config file.")
         return True
     
     # 現在のアクティブなcoderを取得
-    current_coder_id = config_utils.get_active_coder_id()
+    current_coder_id = config_io.get_active_coder_id()
     
     # 現在のcoder情報を表示
     current_coder_name = next((name for key, name in coders if key == current_coder_id), current_coder_id)
@@ -138,13 +137,17 @@ def handle_list_command(args: str, context: Dict[str, Any]) -> bool:
     
     # 選択されたcoderを設定
     if selected != current_coder_id:
-        config_utils.set_active_coder_id(selected)
+        config_io.set_active_coder_id(selected)
         coder_name = next((name for key, name in coders if key == selected), selected)
         print(f"Coder changed to: {coder_name}")
         
-        # ボットを再初期化する必要があることを通知
+        # ボットを再初期化する
         if 'bot' in context:
-            print("Please restart the application to apply the new coder.")
+            # main.pyのinitialize_llm_client関数を呼び出す
+            # この部分は後でmain.pyをリファクタリングする際に修正
+            from main import initialize_llm_client
+            context['bot'] = initialize_llm_client()
+            print(f"Coder changed to: {coder_name}")
     else:
         coder_name = next((name for key, name in coders if key == selected), selected)
         print(f"Coder unchanged: {coder_name}")

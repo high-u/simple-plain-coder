@@ -1,10 +1,15 @@
+"""
+設定関連のI/O操作モジュール
+
+このモジュールは、設定ファイルの読み込みや保存など、副作用を持つI/O操作を提供します。
+"""
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import tomli
 import tomli_w
 import yaml
-import json
 import os
+import config_core
 
 APP_NAME = "simple-plain-coder"
 CODERS_FILENAME = "coders.toml"
@@ -22,8 +27,12 @@ def ensure_config_dir() -> None:
     """設定ディレクトリが存在することを保証する"""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_coders() -> dict:
-    """コーダー設定を読み込む"""
+def load_coders() -> Dict[str, Any]:
+    """コーダー設定を読み込む
+    
+    Returns:
+        コーダー設定辞書
+    """
     if not CODERS_PATH.exists():
         return {}
     
@@ -33,23 +42,15 @@ def load_coders() -> dict:
     except (tomli.TOMLDecodeError, OSError):
         return {}
 
-def save_coders(coders: dict) -> None:
-    """コーダー設定を保存する"""
+def save_coders(coders: Dict[str, Any]) -> None:
+    """コーダー設定を保存する
+    
+    Args:
+        coders: 保存するコーダー設定辞書
+    """
     ensure_config_dir()
     with open(CODERS_PATH, 'wb') as f:
         tomli_w.dump(coders, f)
-
-def get_model_name() -> Optional[str]:
-    """設定ファイルからモデル名を取得する"""
-    coders = load_coders()
-    active_coder_id = get_active_coder_id()
-    return coders.get(active_coder_id, {}).get('model_name')
-
-def get_llm_config() -> Dict[str, Any]:
-    """現在のコーダーの設定を取得する"""
-    coders = load_coders()
-    active_coder_id = get_active_coder_id()
-    return coders.get(active_coder_id, {})
 
 def load_file_content(file_path: str) -> str:
     """ファイルからテキストを読み込む
@@ -80,7 +81,8 @@ def load_file_content(file_path: str) -> str:
 def load_mcp_servers() -> Dict[str, Any]:
     """MCPサーバー設定をYAMLファイルから読み込み、JSON形式に変換する
     
-    ファイルが存在しない場合は空の辞書を返す
+    Returns:
+        MCPサーバー設定辞書、ファイルが存在しない場合は空の辞書
     """
     if not MCP_SERVERS_PATH.exists():
         return {}
@@ -102,14 +104,7 @@ def get_available_coders() -> List[Tuple[str, str]]:
         コーダーのリスト [(コーダーID, コーダー名)]
     """
     coders = load_coders()
-    coder_list = []
-    
-    for key, value in coders.items():
-        # 各セクションからname属性を取得
-        name = value.get('name', key)
-        coder_list.append((key, name))
-    
-    return coder_list
+    return config_core.extract_available_coders(coders)
 
 def get_active_coder_id() -> str:
     """現在アクティブなコーダーIDを取得する
@@ -131,7 +126,7 @@ def get_active_coder_id() -> str:
         return ""
     
     # 最初のコーダーIDを取得して設定
-    _current_coder_id = next(iter(coders.keys()))
+    _current_coder_id = config_core.find_default_coder_id(coders)
     return _current_coder_id
 
 def set_active_coder_id(coder_id: str) -> None:
@@ -142,3 +137,13 @@ def set_active_coder_id(coder_id: str) -> None:
     """
     global _current_coder_id
     _current_coder_id = coder_id
+
+def get_llm_config() -> Dict[str, Any]:
+    """現在のコーダーの設定を取得する
+    
+    Returns:
+        現在のコーダーのLLM設定
+    """
+    coders = load_coders()
+    active_coder_id = get_active_coder_id()
+    return coders.get(active_coder_id, {})

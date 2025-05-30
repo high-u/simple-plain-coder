@@ -11,5 +11,5 @@ git clone https://github.com/high-u/simple-plain-coder.git
 cd simple-plain-coder
 uv sync
 
-uv run python main.py
+uv run python app.py
 ```
